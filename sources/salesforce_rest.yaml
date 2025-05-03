@@ -1,0 +1,11 @@
+type: http
+variables:
+    api_version: "v57.0"
+auth: 
+    type: oauth2
+    grant_type: password
+    token_endpoint: "https://login.salesforce.com/services/oauth2/token"
+    client_id: "{{ var('salesforce_client_id') }}"
+    client_secret: "{{ var('salesforce_client_secret') }}"
+    username: "{{ var('salesforce_username') }}"
+    password: "{{ var('salesforce_password') }}"

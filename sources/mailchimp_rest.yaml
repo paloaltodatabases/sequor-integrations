@@ -1,0 +1,10 @@
+type: http
+variables:
+    dc: "{{ var('mailchimp_dc') }}"
+    api_version: "3.0"
+auth: 
+    type: basic_auth
+    username: "anystring"
+    password: "{{ var('mailchimp_api_key') }}"
+
+ 

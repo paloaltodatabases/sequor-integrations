@@ -1,0 +1,2 @@
+type: duckdb
+conn_str: "{{ var('duckdb_conn_str') }}"

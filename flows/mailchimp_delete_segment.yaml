@@ -1,0 +1,16 @@
+description: |
+  This flow takes segment_id as parameter. The segment must be deleted from Mailchimp.
+steps:
+  - op: http_request
+    id: delete_segment
+    request:
+      source: "mailchimp_rest"
+      url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mail_chimp_list_id') }}/segments/{{ var('segment_id') }}"
+      method: delete
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 204:
+            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
+          return {
+          }

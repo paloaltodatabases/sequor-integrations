@@ -1,0 +1,56 @@
+steps:
+  - op: set_variable
+    id: set_var1
+    set:
+      "var1": "value1" # project scope variable - will survive the flow
+      "var2": { # local scope variable - will not survive the flow
+        value: "value2",
+        scope: "local"
+      }
+  - op: if
+    conditions:
+      - condition: '{{ var("var1") == "value1" }}'
+        then:
+          - op: print
+            message: "IF->THEN branch executed"
+    else:
+      - op: print
+        message: "IF->ELSE branch executed"
+  - op: block
+    steps:
+      - op: print
+        message: "inside BLOCK"
+  - op: execute
+    id: create_example_table
+    source: "stage"
+    statement: |
+      drop table if exists control_ops_users;
+      go
+
+      create table control_ops_users (
+          id text,
+          first_name text,
+          last_name text
+      );
+      go
+      
+      insert into control_ops_users (id, first_name, last_name) values
+        (1, 'Bob', 'Smith'),
+        (2, 'Jane', null);
+      go
+  - op: for_each
+    source: stage
+    table: control_ops_users
+    as: user
+    steps:
+      - op: print
+        # Demostrates how to access the current row in the for_each block in multiple ways:
+        # 1. using var('cust') to access the current row
+        # 2. var('cust')['id'] to access a specific column using "direct key access" notation (raises an error if the column does not exist)
+        # 3. var('cust').get('first_name') to access a specific column using "get" method (also raises an error if the column does not exist)
+        # 3. var('cust').get('last_name', 'unknown') using "get" method with a default value for NULL values
+        message: "inside FOR_EACH block: {{ var('user')['id'] }} - {{ var('user').get('first_name') }} {{ var('user').get('last_name', 'unknown') }}"
+  - op: run_flow
+    flow: control_ops_helper
+    parameters: 
+      param1: "param1_value"

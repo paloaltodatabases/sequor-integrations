@@ -1,0 +1,195 @@
+steps:
+  - op: http_request
+    id: get_repos
+    request:
+      source: "github_rest"
+      url: "https://api.github.com/user/repos"
+      method: GET
+      headers:
+        "Accept": "application/vnd.github+json"
+        "X-GitHub-Api-Version": "{{ var('api_version') }}"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code == 200:
+            repos = response.json() # array of objects representing repos
+            for repo in repos:
+              # Extract the owner username
+              repo["owner_username"] = repo["owner"]["login"]
+            return {
+              "tables": [{  
+                "source": "duckdb",
+                "table": "github_repos",
+                "data": repos,
+                "model": {
+                  "columns": [
+                  {"name": "id", "type": "text"},
+                  {"name": "name", "type": "text"},
+                  {"name": "full_name", "type": "text"},
+                  {"name": "owner_username", "type": "text"},
+                  {"name": "open_issues_count", "type": "text"},
+                  {"name": "forks_count", "type": "text"},
+                  {"name": "watchers_count", "type": "text"}
+                  ]
+                }
+              }]
+            }
+          else:
+            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
+  - op: http_request
+    id: get_issues
+    for_each:
+      source: "duckdb"
+      table: "github_repos"
+      as: repo
+    request:
+      source: "github_rest"
+      url_expression: |
+        def evaluate(context):
+          return f"https://api.github.com/repos/{ context.var('repo').get('owner_username') }/{ context.var('repo').get('name') }/issues"
+      method: GET
+      headers:
+        "Accept": "application/vnd.github+json"
+        "X-GitHub-Api-Version": "{{ var('api_version') }}"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code == 200:
+            issues = response.json()
+            for issue in issues:
+              issue["repo_id"] = context.var("repo").get("id")
+            return {
+              "tables": [{  
+                "source": "duckdb",
+                "table": "github_issues",
+                "data": issues,
+                "model": {
+                  "columns": [
+                  {"name": "repo_id", "type": "text"},
+                  {"name": "id", "type": "text"},
+                  {"name": "title", "type": "text"},
+                  {"name": "state", "type": "text"},
+                  {"name": "created_at", "type": "text"},
+                  {"name": "updated_at", "type": "text"}
+                  ]
+                }
+              }]
+            }
+          else:
+            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)     
+  - op: transform
+    id: create_health_report
+    source: duckdb
+    query: |
+      SELECT
+        r.name AS repository_name,
+        r.full_name AS full_repository_name,
+        COUNT(CASE WHEN i.state = 'open' THEN 1 END) AS actual_open_issues,
+        COUNT(i.id) AS total_issues,
+        CASE WHEN COUNT(i.id) > 0 THEN 
+          ROUND((COUNT(CASE WHEN i.state = 'closed' THEN 1 END) * 100.0 / COUNT(i.id))::numeric, 2)
+          ELSE 0 END AS issue_resolution_rate,
+        ROUND(AVG(CASE WHEN i.state = 'open' THEN 
+          EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - i.created_at::timestamp))/86400 END)::numeric, 1) AS avg_age_open_issues_days,
+        COUNT(CASE WHEN i.state = 'open' AND 
+          EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - i.created_at::timestamp))/86400 > 30 THEN 1 END) AS stale_issues_count,
+        CASE
+          WHEN COUNT(CASE WHEN i.state = 'open' THEN 1 END) > 10 AND 
+              COUNT(CASE WHEN i.state = 'open' AND EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - i.created_at::timestamp))/86400 > 30 THEN 1 END) > 5 
+              THEN 'Needs attention'
+          WHEN COUNT(CASE WHEN i.state = 'open' THEN 1 END) > 0 AND 
+              AVG(CASE WHEN i.state = 'open' THEN EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - i.created_at::timestamp))/86400 END) > 60 
+              THEN 'Stale'
+          WHEN COUNT(i.id) = 0 THEN 'No activity'
+          WHEN COUNT(i.id) > 0 AND COUNT(CASE WHEN i.state = 'open' THEN 1 END) < 5 THEN 'Healthy'
+          ELSE 'Moderate'
+        END AS health_status
+      FROM github_repos r
+      LEFT JOIN github_issues i ON r.id = i.repo_id
+      GROUP BY r.id, r.name, r.full_name, r.open_issues_count, r.forks_count, r.watchers_count;
+    target_table: "github_repo_health_report"
+  - op: http_request
+    id: create_gist
+    request:
+      source: "github_rest"
+      url: "https://api.github.com/gists"
+      method: POST
+      headers:
+        "Accept": "application/vnd.github+json"
+        "X-GitHub-Api-Version": "{{ var('api_version') }}"
+      body_format: json
+      body_expression: |
+        def evaluate(context):
+          # Get the health report data
+          report_data = context.sources.query("duckdb", """
+            SELECT * FROM github_repo_health_report
+          """)
+          
+          # Format the data as markdown table
+          markdown = "# GitHub Repository Health Report\n\n"
+          markdown += "| Repository | Open Issues | Total Issues | Resolution Rate (%) | Avg Age (days) | Stale Issues | Health Status |\n"
+          markdown += "|------------|-------------|--------------|---------------------|----------------|--------------|---------------|\n"
+          
+          for row in report_data:
+            markdown += f"| {row['repository_name']} | {row['actual_open_issues']} | {row['total_issues']} | {row['issue_resolution_rate']} | {row['avg_age_open_issues_days']} | {row['stale_issues_count']} | {row['health_status']} |\n"
+          
+          # Create gist payload
+          return {
+            "description": "GitHub Repository Health Report",
+            "public": False,
+            "files": {
+              "repo_health_report.md": {
+                "content": markdown
+              }
+            }
+          }
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code == 201:
+            gist_data = response.json()
+            return {
+              "variables": {
+                "gist_url": gist_data["html_url"]
+              },
+              "tables": [{  
+                "source": "duckdb",
+                "table": "github_gist_created",
+                "data": [gist_data],
+                "model": {
+                  "columns": [
+                  {"name": "id", "type": "text"},
+                  {"name": "html_url", "type": "text"},
+                  {"name": "created_at", "type": "text"}
+                  ]
+                }
+              }]
+            }
+          else:
+            raise Exception("Error creating gist: " + str(response.status_code) + "; body: " + response.text)
+  - op: print
+    id: print_gist_url
+    message: "Gist URL created: {{ var('gist_url') }}"
+  - op: http_request
+    id: delete_gist
+    for_each:
+      source: "duckdb"
+      table: "github_gist_created"
+      as: repo
+    request:
+      source: "github_rest"
+      url_expression: |
+        def evaluate(context):
+          return f"https://api.github.com/gists/{ context.var('repo').get('id') }"      
+      method: DELETE
+      headers:
+        "Accept": "application/vnd.github+json"
+        "X-GitHub-Api-Version": "{{ var('api_version') }}"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code == 204:
+            return {
+            }
+          else:
+            raise Exception("Error creating gist: " + str(response.status_code) + "; body: " + response.text)

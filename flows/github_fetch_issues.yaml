@@ -1,0 +1,63 @@
+steps:
+  - op: http_request
+    id: get_issues
+    request:
+      source: "github_rest"
+      url_expression: |
+        def evaluate(context):
+          if context.is_var_defined("next_page_url"):
+            return context.var("next_page_url")
+          else:
+            return "https://api.github.com/repos/{{ var('github_username') }}/{{ var('github_repo_name') }}/issues"
+      method: GET
+      parameters:
+        per_page: 2 # small number for testing. Use 100 or even 1000 for production
+      headers:
+        "Accept": "application/vnd.github+json"
+        "X-GitHub-Api-Version": "{{ var('api_version') }}"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code == 200:
+
+            # Extract the 'next' URL from GitHub's Link header or return None if there is no next page
+            def get_next_url(link_header):
+              if not link_header:
+                  return None
+              links = link_header.split(',')
+              for link in links:
+                  parts = link.split(';')
+                  if len(parts) > 1 and 'rel="next"' in parts[1]:
+                      return parts[0].strip(' <>')
+              return None
+
+            link_header_value = response.headers.get("link")
+            next_page_url = get_next_url(link_header_value)
+
+            issues = response.json() # array of objects representing issues
+            return {
+              "variables": {
+                "next_page_url": {
+                  "value": next_page_url,
+                  "scope": "local"
+                }
+              },
+              "tables": [{  
+                "source": "stage",
+                "table": "github_issues",
+                "data": issues,
+                "model": {
+                  "columns": [
+                  {"name": "repo_id", "type": "text"},
+                  {"name": "id", "type": "text"},
+                  {"name": "title", "type": "text"},
+                  {"name": "state", "type": "text"},
+                  {"name": "created_at", "type": "text"},
+                  {"name": "updated_at", "type": "text"}
+                  ]
+                }
+              }],
+              "while": next_page_url is not None
+            }
+          else:
+            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)              

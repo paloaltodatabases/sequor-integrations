@@ -1,0 +1,8 @@
+type: http
+variables:
+    store_name: "{{ var('shopify_store_name') }}"
+    api_version: "2025-04"
+auth: 
+    type: basic_auth
+    username: "{{ var('shopify_api_key') }}"
+    password: "{{ var('shopify_password') }}"

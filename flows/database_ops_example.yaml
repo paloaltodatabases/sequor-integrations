@@ -1,0 +1,27 @@
+steps:
+  - op: execute
+    id: create_example_table
+    source: "stage"
+    # Notice go command that must be added on its own line after each statement
+    statement: |
+      drop table if exists database_ops_users;
+      go
+
+      create table database_ops_users (
+          id text,
+          first_name text,
+          last_name text
+      );
+      go
+      
+      insert into database_ops_users (id, first_name, last_name) values
+        (1, 'Bob', 'Smith'),
+        (2, 'Jane', 'Brown');
+      go
+
+  - op: transform
+    source: stage
+    query: |
+      select *, concat(first_name, ' ', last_name) as full_name
+      from database_ops_users
+    target_table: database_ops_users_transformed

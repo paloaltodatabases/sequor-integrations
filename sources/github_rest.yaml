@@ -1,0 +1,6 @@
+type: http
+variables:
+    api_version: "2022-11-28"
+auth: 
+    type: bearer_token
+    token: "{{ var('github_bearer_token') }}"

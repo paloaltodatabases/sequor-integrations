@@ -1,0 +1,70 @@
+steps:
+  - op: execute
+    id: create_accounts_table
+    source: "stage"
+    statement: |
+      drop table if exists sfdc_accounts_to_insert;
+      go
+
+      create table sfdc_accounts_to_insert (
+          id text,
+          "Name" text
+      );
+      go
+      
+      insert into sfdc_accounts_to_insert (id, "Name") values
+        (1, 'Bob Smith'),
+        (2, 'Jane Brown');
+      go
+
+  - op: http_request
+    id: post_accounts
+    for_each:
+      source: "stage"
+      table: "sfdc_accounts_to_insert"
+      as: account
+    request:
+      source: "salesforce_rest"
+      url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/sobjects/Account"
+      method: POST
+      headers:
+        "Accept": "application/json"
+        "Content-Type": "application/json"
+      body_format: json
+      body_expression: |
+        def evaluate(context):
+          account = context.var("account").to_dict()
+          del account["id"]  # Remove the id field from the account dict as Salesforce does not accept it
+          return account
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 201:
+            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
+          res = response.json()
+          if res["success"] != True:
+            raise Exception(f"Error from Salesforce: {str(res['errors'])}")
+          record = {
+            "sfdc_id": res["id"],
+            "id": context.var("account").get("id"),
+          }
+          return {
+            "tables": [{  
+              "source": "stage",
+              "table": "sfdc_accounts_inserted",
+              "data": [record],  
+              "model": {
+                "columns": [
+                {"name": "sfdc_id", "type": "text"},
+                {"name": "id", "type": "text"}
+                ]
+              }
+            }]
+          }
+  - op: run_flow
+    id: delete_accounts
+    flow: salesforce_delete_accounts
+    parameters:
+      input_table_name: "sfdc_accounts_inserted"
+
+

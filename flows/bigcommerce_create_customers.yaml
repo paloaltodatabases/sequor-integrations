@@ -1,0 +1,74 @@
+
+steps:
+  - op: execute
+    id: create_customers_table
+    source: "stage"
+    statement: |
+      drop table if exists bc_customers_to_insert;
+      go
+
+      create table bc_customers_to_insert (
+          id text,
+          first_name text,
+          last_name text,
+          email text
+      );
+      go
+      
+      insert into bc_customers_to_insert (id, first_name, last_name, email) values
+        (1, 'Bob', null, 'bob@brown.net'),
+        (2, 'Jane', 'Brown', 'jane@smith.net');
+      go
+  - op: http_request
+    id: create_customers
+    for_each:
+      source: "stage"
+      table: "bc_customers_to_insert"
+      as: customer
+    request:
+      source: "bigcommerce_rest"
+      url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
+      method: POST
+      headers:
+        "Content-Type": "application/json"
+      body_format: json
+      body:
+        - "first_name": "{{ var('customer').get('first_name', '__NULL__') }}"
+          "last_name": "{{ var('customer').get('last_name', '__NULL__') }}"
+          "email": "{{ var('customer').get('email', '__NULL__') }}"
+      # Equivalent version using body_expression
+      # body_expression: |
+      #   def evaluate(context):
+      #     return [{
+      #       "first_name": context.var("customer").get("first_name"),
+      #       "last_name": context.var("customer").get("last_name"),
+      #       "email": context.var("customer").get("last_name")
+      #     }]          
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 200:
+            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
+          customers_created = response.json()['data']
+          customers_created['source_id'] = context.var("customer").get("id")
+          return {
+            "tables": [{  
+              "source": "stage",
+              "table": "bc_customers_inserted",
+              "data": customers_created,  
+              "model": {
+                "columns": [
+                {"name": "id", "type": "text"},
+                {"name": "source_id", "type": "text"},
+                {"name": "first_name", "type": "text"},
+                {"name": "last_name", "type": "text"},
+                {"name": "email", "type": "text"}
+                ]
+              }
+            }]
+          } 
+  - op: run_flow
+    flow: bigcommerce_delete_customers
+    parameters:
+      input_table: "bc_customers_inserted"
+  

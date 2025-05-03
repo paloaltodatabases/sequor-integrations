@@ -1,0 +1,61 @@
+steps:
+  - op: transform
+    id: query_top_engaded
+    source: stage
+    query: |
+      select * from mailchimp_subscribers order by avg_open_rate desc limit 3
+    target_table: "mailchimp_subscribers_top_engaged"
+  - op: http_request
+    id: create_segment
+    request:
+      source: "mailchimp_rest"
+      url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments"
+      method: post
+      body_format: json
+      body:
+        name: "top_engaged"
+        static_segment: []
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 200:
+            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
+          data = response.json()
+          return {
+            "variables": {
+              "mailchimp_segment_id": data["id"]
+            }
+          }
+  - op: print
+    message: "Segment created with ID: {{ var('mailchimp_segment_id') }}"
+
+  - op: http_request
+    id: add_segment_members
+    for_each:
+      source: "stage"
+      table: "mailchimp_subscribers_top_engaged"
+      as: subscriber
+    request:
+      source: "mailchimp_rest"
+      url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments/{{ var('mailchimp_segment_id') }}/members"
+      method: post
+      body_format: json
+      body_expression: |
+        def evaluate(context):
+          subscriber = context.var('subscriber')
+          return {
+            "email_address": subscriber['email_address']
+          }
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 200:
+            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
+          return {
+          }
+                
+  - op: run_flow
+    flow: mailchimp_delete_segment
+    parameters:
+      segment_id: "{{ var('mailchimp_segment_id') }}"
+             

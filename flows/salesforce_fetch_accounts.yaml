@@ -1,0 +1,83 @@
+steps:
+  - op: http_request
+    id: get_instance_url
+    request:
+      source: "salesforce_rest"
+      url: "https://login.salesforce.com/services/oauth2/token"
+      method: POST
+      headers:
+        "Content-Type": "application/x-www-form-urlencoded"
+      body_format: form_urlencoded
+      body:
+        grant_type: "password"
+        client_id: "{{ var('salesforce_client_id') }}"
+        client_secret: "{{ var('salesforce_client_secret') }}"
+        username: "{{ var('salesforce_username') }}"
+        password: "{{ var('salesforce_password') }}"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 200:
+            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
+          data = response.json()
+          return {
+            "variables": {
+              "sfdc_instance_url": data["instance_url"]
+              }
+          }
+            
+  - op: http_request
+    id: get_account_schema
+    request:
+      source: "salesforce_rest"
+      url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/sobjects/Account/describe"
+      method: GET
+      headers:
+        "Accept": "application/json"
+        "Content-Type": "application/json"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 200:
+            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
+          json_data = response.json()
+          fields = json_data["fields"]
+          field_names_joined = ", ".join(field["name"] for field in fields)
+          return {
+            "variables": {
+              "account_fields": fields,
+              "account_field_names_joined": field_names_joined
+            }
+          }
+            
+  - op: http_request
+    id: get_accounts
+    request:
+      source: "salesforce_rest"
+      url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/queryAll/"
+      method: GET
+      parameters: 
+        "q": "select {{ var('account_field_names') }} from Account"
+      headers:
+        "Accept": "application/json"
+        "Content-Type": "application/json"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          import json
+          if response.status_code != 200:
+            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
+          records = response.json()['records']
+          columns_schema = [{"name": field["name"], "type": "text"} for field in context.var("account_fields")]
+          return {
+            "tables": [{  
+              "source": "stage",
+              "table": "sfdc_accounts",
+              "data": records,  
+              "model": {
+                "columns": columns_schema
+              }
+            }]
+          }
+
+

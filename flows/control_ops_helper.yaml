@@ -1,0 +1,3 @@
+steps:
+  - op: print
+    message: 'param1 = {{ var("param1") }}'

@@ -1,0 +1,24 @@
+description: This flow takes the name of a input table as input_table parameter. 
+steps:
+  - op: http_request
+    id: delete_inserted_customers
+    for_each:
+      source: "stage"
+      table: "{{ var('input_table') }}"
+      as: customer
+    request:
+      source: "bigcommerce_rest"
+      url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
+      method: DELETE
+      parameters:
+        "id:in": "{{ var('customer').get('id') }}"
+      headers:
+        "Content-Type": "application/json"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          status_code = response.status_code
+          if status_code != 204:
+            raise Exception(f"Error status code: {status_code} deleting record '{var('customer').get('id')}' body: {response.text}")
+          return {
+          }        

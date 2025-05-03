@@ -1,0 +1,7 @@
+steps:
+  -op: run_flow
+   flow: bigcommerce_fetch_customers
+  -op: run_flow
+   flow: bigcommerce_delete_customers
+   parameters:
+     input_table: bc_customers

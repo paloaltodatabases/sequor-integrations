@@ -1,0 +1,8 @@
+steps:
+  - op: print
+    message: 'Hellow world!'
+  - op: transform
+    source: duckdb
+    query: |
+      SELECT 42 AS i
+    target_table: test    

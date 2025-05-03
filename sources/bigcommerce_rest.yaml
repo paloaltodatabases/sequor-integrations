@@ -1,0 +1,9 @@
+type: http
+variables:
+    store_hash: "{{ var('bigcommerce_store_hash') }}"
+    api_version: "v3"
+auth: 
+    type: api_key
+    key_name: "X-Auth-Token"
+    key_value: "{{ var('bigcommerce_auth_token') }}"
+    add_to: header
