@@ -11,7 +11,7 @@ This repository contains pre-built integration flows for popular services includ
 - **Pre-solved common challenges** including authentication, pagination, and response mapping
 - **Consistently structured flows** following best practices for maintainability
 
-## Integration Structure
+## Integration structure
 
 Each integration follows a consistent pattern:
 
@@ -23,7 +23,7 @@ sources/
   └── <system_name>_*.yaml                  # Source configurations
 ```
 
-## Environment Setup
+## Environment setup
 
 Before running any integration flow:
 
@@ -31,7 +31,7 @@ Before running any integration flow:
 2. Add the required environment variables to your Sequor environment
 3. Run the desired integration flow
 
-## Learning From Examples
+## Learning from examples
 
 Even if your target system isn't included, these integrations demonstrate reusable patterns for:
 
@@ -39,11 +39,11 @@ Even if your target system isn't included, these integrations demonstrate reusab
 - Configuring and parameterizing HTTP requests
 - Response parsing and database mapping
 - Implementing pagination strategies
-- Bidirectional data synchronization
+- Bidirectional data integrations
 
-The repository showcases approximately 10 common integration patterns that you can apply to build your own custom integrations.
+The repository showcases all common integration patterns that you can apply to build your own custom integrations.
 
-## Getting Started
+## Getting started
 
 ```bash
 # Clone the repository
@@ -63,7 +63,7 @@ sequor run flows/mailchimp_fetch_subscribers.yaml
 
 We welcome contributions! If you've built an integration that others might find useful, please consider submitting a pull request.
 
-## Stay Connected
+## Stay connected
 
 We continuously add new integrations. Subscribe to the [Sequor newsletter](https://buttondown.com/sequor) to receive updates.
 
