@@ -5,12 +5,6 @@ steps:
       source: "bigcommerce"
       url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
       method: GET
-      parameters_expression: |
-        def evaluate(context):
-          return {
-            "limit": 5, # intentionally small limit for testing; use 100 or even 1000 for production
-            "page": context.var("next_page") if context.is_var_defined("next_page") else 1
-          }
       headers:
         "Accept": "application/json"
     response:
@@ -18,20 +12,13 @@ steps:
         def evaluate(context, response):
           if response.status_code != 200:
             raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
-          json_data = response.json()
-          current_page = json_data["meta"]["pagination"]["current_page"]; # integer
-          total_pages = json_data["meta"]["pagination"]["total_pages"]; # integer
+          data_parsed = response.json()
+          customers = data_parsed['data']
           return {
-            "variables": {
-              "next_page": {
-                "value": current_page + 1,
-                "scope": "local"
-              }
-            },
             "tables": [{  
               "source": "stage",
               "table": "bc_customers",
-              "data": json_data['data'],  
+              "data": customers,  
               "model": {
                 "columns": [
                 {"name": "id", "type": "text"},
@@ -39,6 +26,5 @@ steps:
                 {"name": "last_name", "type": "text"}
                 ]
               }
-            }],
-            "while": current_page < total_pages
+            }]
           }

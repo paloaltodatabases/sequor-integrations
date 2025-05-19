@@ -1,14 +1,12 @@
-description: |
-  This flow takes 'input_table_name' as a parameter. The table must contain sfdc_id column with the Salesforce Account IDs to be deleted
 steps:
   - op: http_request
     id: delete_accounts
     for_each:
       source: "stage"
-      table: "{{ var('input_table_name') }}"
+      table: "sfdc_accounts_inserted"
       as: account
     request:
-      source: "salesforce_rest"
+      source: "salesforce"
       url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/sobjects/Account/{{ var('account')['sfdc_id'] }}"
       method: DELETE
       headers:

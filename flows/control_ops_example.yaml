@@ -2,8 +2,8 @@ steps:
   - op: set_variable
     id: set_var1
     set:
-      "var1": "value1" # project scope variable - will survive the flow
-      "var2": { # local scope variable - will not survive the flow
+      "var1": "value1" # Project scope variable - persists after flow execution
+      "var2": { # Local scope variable - temporary during flow execution
         value: "value2",
         scope: "local"
       }

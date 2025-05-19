@@ -2,12 +2,11 @@ steps:
   - op: http_request
     id: get_customers
     request:
-      source: "shopify_rest"
+      source: "shopify"
       url: "https://{{ var('store_name') }}.myshopify.com/admin/api/{{ var('api_version') }}/customers.json"
       method: GET
       headers:
         "Accept": "application/json"
-        "Content-Type": "application/json"
     response:
       parser_expression: |
         def evaluate(context, response):
@@ -19,14 +18,13 @@ steps:
           for customer in customers:
             # flattening the nested object
             customer['email_consent_state'] = customer['email_marketing_consent']['state'] 
-            customer['opt_in_level'] = customer['email_marketing_consent']['single_opt_in'] 
+            customer['opt_in_level'] = customer['email_marketing_consent'].get('single_opt_in') 
             
             # extract nested list of addresses and add customer_id to each address for reference
             for address in customer['addresses']:
-              # in Shopify each address already has a customer_id field but we assume they don't to demostrate enriching the data with reference to the customer
+              # in Shopify each address already has a customer_id field but we assume they don't to demonstrate enriching the data with reference to the customer
               address['customer_id'] = customer['id'] 
               customer_addresses.append(address)
-          customers = response.json()['customers']
           return {
             "tables": [
               {  

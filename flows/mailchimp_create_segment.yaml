@@ -8,7 +8,7 @@ steps:
   - op: http_request
     id: create_segment
     request:
-      source: "mailchimp_rest"
+      source: "mailchimp"
       url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments"
       method: post
       body_format: json
@@ -36,7 +36,7 @@ steps:
       table: "mailchimp_subscribers_top_engaged"
       as: subscriber
     request:
-      source: "mailchimp_rest"
+      source: "mailchimp"
       url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments/{{ var('mailchimp_segment_id') }}/members"
       method: post
       body_format: json
@@ -54,8 +54,5 @@ steps:
           return {
           }
                 
-  - op: run_flow
-    flow: mailchimp_delete_segment
-    parameters:
-      segment_id: "{{ var('mailchimp_segment_id') }}"
+
              

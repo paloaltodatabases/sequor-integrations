@@ -1,0 +1,47 @@
+steps:
+  - op: run_flow
+    flow: control_ops_example
+  - op: run_flow
+    flow: database_ops_example
+  - op: run_flow
+    flow: duckdb
+
+
+  - op: run_flow
+    flow: bigcommerce_create_customers
+  - op: run_flow
+    flow: bigcommerce_fetch_customers
+  - op: run_flow
+    flow: bigcommerce_delete_customers_helper
+    parameters:
+      input_table: "bc_customers_inserted"
+
+  - op: run_flow
+    flow: github_repo_health
+  - op: run_flow
+    flow: github_repo_health_delete_gist
+  - op: run_flow
+    flow: github_fetch_issues    
+
+  - op: run_flow
+    flow: mailchimp_fetch_subscribers
+  - op: run_flow
+    flow: mailchimp_create_segment
+  - op: run_flow
+    flow: mailchimp_delete_segment
+    parameters:
+      segment_id: "{{ var('mailchimp_segment_id') }}"
+
+  - op: run_flow
+    flow: salesforce_fetch_instance_url
+  - op: run_flow
+    flow: salesforce_create_accounts
+  - op: run_flow
+    flow: salesforce_fetch_accounts
+  - op: run_flow
+    flow: salesforce_delete_accounts
+
+  - op: run_flow
+    flow: shopify_fetch_customers
+
+    

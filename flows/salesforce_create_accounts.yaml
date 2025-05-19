@@ -24,7 +24,7 @@ steps:
       table: "sfdc_accounts_to_insert"
       as: account
     request:
-      source: "salesforce_rest"
+      source: "salesforce"
       url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/sobjects/Account"
       method: POST
       headers:
@@ -61,10 +61,6 @@ steps:
               }
             }]
           }
-  - op: run_flow
-    id: delete_accounts
-    flow: salesforce_delete_accounts
-    parameters:
-      input_table_name: "sfdc_accounts_inserted"
+
 
 

@@ -2,7 +2,7 @@ steps:
   - op: http_request
     id: get_repos
     request:
-      source: "github_rest"
+      source: "github"
       url: "https://api.github.com/user/repos"
       method: GET
       headers:
@@ -43,7 +43,7 @@ steps:
       table: "github_repos"
       as: repo
     request:
-      source: "github_rest"
+      source: "github"
       url_expression: |
         def evaluate(context):
           return f"https://api.github.com/repos/{ context.var('repo').get('owner_username') }/{ context.var('repo').get('name') }/issues"
@@ -111,7 +111,7 @@ steps:
   - op: http_request
     id: create_gist
     request:
-      source: "github_rest"
+      source: "github"
       url: "https://api.github.com/gists"
       method: POST
       headers:
@@ -170,26 +170,4 @@ steps:
   - op: print
     id: print_gist_url
     message: "Gist URL created: {{ var('gist_url') }}"
-  - op: http_request
-    id: delete_gist
-    for_each:
-      source: "duckdb"
-      table: "github_gist_created"
-      as: repo
-    request:
-      source: "github_rest"
-      url_expression: |
-        def evaluate(context):
-          return f"https://api.github.com/gists/{ context.var('repo').get('id') }"      
-      method: DELETE
-      headers:
-        "Accept": "application/vnd.github+json"
-        "X-GitHub-Api-Version": "{{ var('api_version') }}"
-    response:
-      parser_expression: |
-        def evaluate(context, response):
-          if response.status_code == 204:
-            return {
-            }
-          else:
-            raise Exception("Error creating gist: " + str(response.status_code) + "; body: " + response.text)
+

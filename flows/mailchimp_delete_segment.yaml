@@ -4,8 +4,8 @@ steps:
   - op: http_request
     id: delete_segment
     request:
-      source: "mailchimp_rest"
-      url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mail_chimp_list_id') }}/segments/{{ var('segment_id') }}"
+      source: "mailchimp"
+      url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments/{{ var('segment_id') }}"
       method: delete
     response:
       parser_expression: |

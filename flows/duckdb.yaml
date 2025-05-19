@@ -1,6 +1,4 @@
 steps:
-  - op: print
-    message: 'Hellow world!'
   - op: transform
     source: duckdb
     query: |

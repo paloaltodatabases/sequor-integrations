@@ -2,7 +2,7 @@ steps:
   - op: http_request
     id: get_subscribers
     request:
-      source: "mailchimp_rest"
+      source: "mailchimp"
       url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/members"
       method: GET
     response:

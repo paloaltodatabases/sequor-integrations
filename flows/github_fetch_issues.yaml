@@ -2,7 +2,7 @@ steps:
   - op: http_request
     id: get_issues
     request:
-      source: "github_rest"
+      source: "github"
       url_expression: |
         def evaluate(context):
           if context.is_var_defined("next_page_url"):

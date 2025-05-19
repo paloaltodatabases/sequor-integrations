@@ -7,7 +7,7 @@ steps:
       table: "{{ var('input_table') }}"
       as: customer
     request:
-      source: "bigcommerce_rest"
+      source: "bigcommerce"
       url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
       method: DELETE
       parameters:

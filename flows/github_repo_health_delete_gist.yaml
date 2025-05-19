@@ -1,0 +1,24 @@
+steps:
+  - op: http_request
+    id: delete_gist
+    for_each:
+      source: "duckdb"
+      table: "github_gist_created"
+      as: repo
+    request:
+      source: "github"
+      url_expression: |
+        def evaluate(context):
+          return f"https://api.github.com/gists/{ context.var('repo').get('id') }"      
+      method: DELETE
+      headers:
+        "Accept": "application/vnd.github+json"
+        "X-GitHub-Api-Version": "{{ var('api_version') }}"
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code == 204:
+            return {
+            }
+          else:
+            raise Exception("Error creating gist: " + str(response.status_code) + "; body: " + response.text)
