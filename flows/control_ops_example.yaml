@@ -44,7 +44,7 @@ steps:
     as: user
     steps:
       - op: print
-        # Demostrates how to access the current row in the for_each block in multiple ways:
+        # Demonstrates how to access the current row in the for_each block in multiple ways:
         # 1. using var('cust') to access the current row
         # 2. var('cust')['id'] to access a specific column using "direct key access" notation (raises an error if the column does not exist)
         # 3. var('cust').get('first_name') to access a specific column using "get" method (also raises an error if the column does not exist)
