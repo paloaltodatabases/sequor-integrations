@@ -20,7 +20,7 @@ flows/
   └── <system_name>_<verb>_<object>.yaml  # Integration flow (e.g. mailchimp_fetch_subscribers.yaml)
   └── <system_name>_env.yaml                # Environment variables required for the integration
 sources/
-  └── <system_name>_*.yaml                  # Source configurations
+  └── <system_name>.yaml                  # Source configurations
 ```
 
 ## Environment setup
