@@ -1,0 +1,20 @@
+description: This flow takes the name of a input table as input_table parameter. 
+steps:
+  - op: http_request
+    id: delete_companies
+    for_each:
+      source: "stage"
+      table: "{{ var('input_table') }}"
+      as: company
+    request:
+      source: "hubspot"
+      url: "https://api.hubapi.com/crm/{{ var('api_version') }}/objects/companies/{{ var('company').get('id') }}"
+      method: DELETE
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          status_code = response.status_code
+          if status_code != 204:
+            raise Exception(f"Error status code: {status_code} deleting record '{var('company').get('id')}' body: {response.text}")
+          return {
+          }     

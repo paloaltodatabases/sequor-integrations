@@ -1,0 +1,6 @@
+type: http
+variables:
+    api_version: "v3"
+auth: 
+    type: bearer_token
+    token: "{{ var('hubspot_access_token') }}"

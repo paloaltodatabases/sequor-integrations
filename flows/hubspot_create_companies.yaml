@@ -1,0 +1,62 @@
+steps:
+  - op: execute
+    id: create_companies_table
+    source: "stage"
+    statement: |
+      drop table if exists hubspot_companies_to_insert;
+      go
+
+      create table hubspot_companies_to_insert (
+          id text,
+          name text,
+          domain text
+      );
+      go
+      
+      insert into hubspot_companies_to_insert (id, name, domain) values
+        (1, 'Blueprint Consulting', 'blueprintconsulting.com'),
+        (2, 'Riverside Manufacturing', 'riversidemanufacturing.com');
+      go
+  - op: http_request
+    id: create_customers
+    for_each:
+      source: "stage"
+      table: "hubspot_companies_to_insert"
+      as: company
+    request:
+      source: "hubspot"
+      url: "https://api.hubapi.com/crm/{{ var('api_version') }}/objects/companies"
+      method: POST
+      headers:
+        "Content-Type": "application/json"
+      body_format: json
+      body_expression: |
+        def evaluate(context):
+          return {
+            "properties": {
+              "name": context.var("company").get("name"),
+              "domain": context.var("company").get("domain")
+            }
+          }          
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 201:
+            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
+          company_created = response.json()
+          company_created['source_id'] = context.var("company").get("id")
+          company_created['name'] = company_created['properties'].get('name')
+          return {
+            "tables": [{  
+              "source": "stage",
+              "table": "hubspot_companies_inserted",
+              "data": [ company_created ],  
+              "model": {
+                "columns": [
+                {"name": "id", "type": "text"},
+                {"name": "source_id", "type": "text"},
+                {"name": "name", "type": "text"}
+                ]
+              }
+            }]
+          } 

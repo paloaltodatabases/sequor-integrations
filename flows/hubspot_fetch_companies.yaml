@@ -1,0 +1,35 @@
+steps:
+  - op: http_request
+    id: get_companies
+    request:
+      source: "hubspot"
+      url: "https://api.hubapi.com/crm/{{ var('api_version') }}/objects/companies"
+      method: GET
+      params:
+        limit: 100
+    response:
+      parser_expression: |
+        def evaluate(context, response):
+          if response.status_code != 200:
+            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
+          data_parsed = response.json()
+          companies = data_parsed.get('results', [])
+          companies_flat = []
+          for company in companies:
+            company_properties = company.get('properties', {})
+            company_properties['id'] = company.get('id')
+            companies_flat.append(company_properties)
+          return {
+            "tables": [{
+              "source": "stage",
+              "table": "hubspot_companies",
+              "data": companies_flat,
+              "model": {
+                "columns": [
+                  {"name": "id", "type": "text"},
+                  {"name": "name", "type": "text"},
+                  {"name": "domain", "type": "text"}
+                ]
+              }
+            }]
+          }

@@ -1,0 +1,7 @@
+steps:
+  - op: run_flow
+    flow: hubspot_fetch_companies
+  - op: run_flow
+    flow: hubspot_delete_companies_helper
+    parameters:
+      input_table: hubspot_companies
