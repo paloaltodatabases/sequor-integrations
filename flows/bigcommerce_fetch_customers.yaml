@@ -6,18 +6,20 @@ steps:
       url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
       method: GET
       parameters_expression: |
-        def evaluate(context):
-          return {
-            "limit": 5, # intentionally small limit for testing; use 100 or even 1000 for production
-            "page": context.var("next_page") if context.is_var_defined("next_page") else 1
-          }
+        return {
+          "limit": 5, # intentionally small limit for testing; use 100 or even 1000 for production
+          "page": context.var("next_page") if context.is_var_defined("next_page") else 1
+        }
       headers:
         "Accept": "application/json"
     response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "bc_customers"
+          columns: {"id": "text", "first_name": "text", "last_name": "text"}
       parser_expression: |
         def evaluate(context, response):
-          if response.status_code != 200:
-            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
           json_data = response.json()
           current_page = json_data["meta"]["pagination"]["current_page"]; # integer
           total_pages = json_data["meta"]["pagination"]["total_pages"]; # integer
@@ -28,17 +30,8 @@ steps:
                 "scope": "local"
               }
             },
-            "tables": [{  
-              "source": "stage",
-              "table": "bc_customers",
-              "data": json_data['data'],  
-              "model": {
-                "columns": [
-                {"name": "id", "type": "text"},
-                {"name": "first_name", "type": "text"},
-                {"name": "last_name", "type": "text"}
-                ]
-              }
-            }],
+            "tables": {
+              "bc_customers": json_data["data"]
+            },
             "while": current_page < total_pages
           }

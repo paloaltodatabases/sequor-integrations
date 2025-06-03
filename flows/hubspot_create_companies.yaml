@@ -39,24 +39,17 @@ steps:
             }
           }          
     response:
+      success_status: [201]
+      tables: 
+        - source: "stage"
+          table: "hubspot_companies_inserted"
+          columns: {"id": "text", "source_id": "text", "name": "text"}
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 201:
-            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
-          company_created = response.json()
-          company_created['source_id'] = context.var("company").get("id")
-          company_created['name'] = company_created['properties'].get('name')
-          return {
-            "tables": [{  
-              "source": "stage",
-              "table": "hubspot_companies_inserted",
-              "data": [ company_created ],  
-              "model": {
-                "columns": [
-                {"name": "id", "type": "text"},
-                {"name": "source_id", "type": "text"},
-                {"name": "name", "type": "text"}
-                ]
-              }
-            }]
-          } 
+        company_created = response.json()
+        company_created['source_id'] = context.var("company").get("id")
+        company_created['name'] = company_created['properties'].get('name')
+        return {
+          "tables": {  
+            "hubspot_companies_inserted": [ company_created ]
+          }
+        } 

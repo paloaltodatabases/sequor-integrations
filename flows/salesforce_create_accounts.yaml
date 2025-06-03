@@ -32,35 +32,28 @@ steps:
         "Content-Type": "application/json"
       body_format: json
       body_expression: |
-        def evaluate(context):
-          account = context.var("account").to_dict()
-          del account["id"]  # Remove the id field from the account dict as Salesforce does not accept it
-          return account
+        account = context.var("account").to_dict()
+        del account["id"]  # Remove the id field from the account dict as Salesforce does not accept it
+        return account
     response:
+      success_status: [201]
+      tables: 
+        - source: "stage"
+          table: "sfdc_accounts_inserted"
+          columns: {"sfdc_id": "text", "id": "text"}
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 201:
-            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
-          res = response.json()
-          if res["success"] != True:
-            raise Exception(f"Error from Salesforce: {str(res['errors'])}")
-          record = {
-            "sfdc_id": res["id"],
-            "id": context.var("account").get("id"),
+        res = response.json()
+        if res["success"] != True:
+          raise Exception(f"Error from Salesforce: {str(res['errors'])}")
+        record = {
+          "sfdc_id": res["id"],
+          "id": context.var("account").get("id"),
+        }
+        return {
+          "tables": {  
+            "sfdc_accounts_inserted": [record]
           }
-          return {
-            "tables": [{  
-              "source": "stage",
-              "table": "sfdc_accounts_inserted",
-              "data": [record],  
-              "model": {
-                "columns": [
-                {"name": "sfdc_id", "type": "text"},
-                {"name": "id", "type": "text"}
-                ]
-              }
-            }]
-          }
+        }
 
 
 

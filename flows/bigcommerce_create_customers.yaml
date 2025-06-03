@@ -17,7 +17,17 @@ steps:
       
       insert into bc_customers_to_insert (id, first_name, last_name, email) values
         (1, 'Bob', 'Smith', 'bob@smith.net'),
-        (2, 'Jane', 'Brown', 'jane@brown.net');
+        (2, 'Jane', 'Brown', 'jane@brown.net'),
+        (3, 'Max', 'Brown', 'max@brown.net'),
+        (4, 'John', 'Brown', 'john@brown.net'),
+        (5, 'Joe', 'Brown', 'joe@brown.net'),
+        (6, 'Sophie', 'Brown', 'sophie@brown.net'),
+        (7, 'Zoie', 'Brown', 'zoie@brown.net'),
+        (8, 'Philip', 'Brown', 'philip@brown.net'),
+        (9, 'Maria', 'Brown', 'maria@brown.net'),
+        (10, 'Peter', 'Brown', 'peter@brown.net'),
+        (11, 'Ivan', 'Brown', 'ivan@brown.net'),
+        (12, 'Donald', 'Brown', 'donald@brown.net');
       go
   - op: http_request
     id: create_customers
@@ -32,40 +42,33 @@ steps:
       headers:
         "Content-Type": "application/json"
       body_format: json
-      body:
-        - "first_name": "{{ var('customer').get('first_name', '__NULL__') }}"
-          "last_name": "{{ var('customer').get('last_name', '__NULL__') }}"
-          "email": "{{ var('customer').get('email', '__NULL__') }}"
+      body_expression: |
+          return [{
+            "first_name": context.var("customer").get("first_name"),
+            "last_name": context.var("customer").get("last_name"),
+            "email": context.var("customer").get("email")
+          }]         
       # Equivalent version using body_expression
-      # body_expression: |
-      #   def evaluate(context):
-      #     return [{
-      #       "first_name": context.var("customer").get("first_name"),
-      #       "last_name": context.var("customer").get("last_name"),
-      #       "email": context.var("customer").get("email")
-      #     }]          
+      # body:
+      #   - "first_name": "{{ var('customer').get('first_name', '__NULL__') }}"
+      #     "last_name": "{{ var('customer').get('last_name', '__NULL__') }}"
+      #     "email": "{{ var('customer').get('email', '__NULL__') }}"
     response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "bc_customers_inserted"
+          columns: {id: "text", "source_id": "text", "first_name": "text", "last_name": "text", "email": "text"}
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 200:
-            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
-          customers_created = response.json()['data'][0]
-          customers_created['source_id'] = context.var("customer").get("id")
-          return {
-            "tables": [{  
-              "source": "stage",
-              "table": "bc_customers_inserted",
-              "data": [ customers_created ],  
-              "model": {
-                "columns": [
-                {"name": "id", "type": "text"},
-                {"name": "source_id", "type": "text"},
-                {"name": "first_name", "type": "text"},
-                {"name": "last_name", "type": "text"},
-                {"name": "email", "type": "text"}
-                ]
-              }
-            }]
-          } 
+        // extract customer with newly generated customer ID
+        customers_created = response.json()['data'][0]
+        // add the source ID
+        customers_created['source_id'] = context.var("customer").get("id")
+        // store into database
+        return {
+          "tables": {  
+            "bc_customers_inserted": [ customers_created ]
+          }
+        } 
 
   

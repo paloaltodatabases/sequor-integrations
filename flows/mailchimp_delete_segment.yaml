@@ -8,9 +8,4 @@ steps:
       url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments/{{ var('segment_id') }}"
       method: delete
     response:
-      parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 204:
-            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
-          return {
-          }
+      success_status: [204]

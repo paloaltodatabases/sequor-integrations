@@ -8,17 +8,11 @@ steps:
     request:
       source: "github"
       url_expression: |
-        def evaluate(context):
           return f"https://api.github.com/gists/{ context.var('repo').get('id') }"      
       method: DELETE
       headers:
         "Accept": "application/vnd.github+json"
         "X-GitHub-Api-Version": "{{ var('api_version') }}"
     response:
-      parser_expression: |
-        def evaluate(context, response):
-          if response.status_code == 204:
-            return {
-            }
-          else:
-            raise Exception("Error creating gist: " + str(response.status_code) + "; body: " + response.text)
+      success_status: [204]
+      
