@@ -8,14 +8,24 @@ steps:
       headers:
         "Accept": "application/json"
     response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "shopify_customers"
+          columns: {
+            "id": "text", "first_name": "text", "last_name": "text", "email": "text"
+          }
+        - source: "stage"
+          table: "shopify_customer_addresses"
+          columns: {
+            "id": "text", "customer_id": "text", "address1": "text", "address2": "text",
+            "city": "text", "province": "text", "zip": "text", "country": "text"
+          }
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 200:
-            raise "Error response code: " + str(response.status_code)
-          customers = response.json()['customers']
-          
+          customers = response.json()['customers']          
           customer_addresses = []
           for customer in customers:
+          
             # flattening the nested object
             customer['email_consent_state'] = customer['email_marketing_consent']['state'] 
             customer['opt_in_level'] = customer['email_marketing_consent'].get('single_opt_in') 
@@ -25,37 +35,10 @@ steps:
               # in Shopify each address already has a customer_id field but we assume they don't to demonstrate enriching the data with reference to the customer
               address['customer_id'] = customer['id'] 
               customer_addresses.append(address)
+              
           return {
-            "tables": [
-              {  
-                "source": "stage",
-                "table": "shopify_customers",
-                "data": customers,  
-                "model": {
-                  "columns": [
-                  {"name": "id", "type": "text"},
-                  {"name": "first_name", "type": "text"},
-                  {"name": "last_name", "type": "text"},
-                  {"name": "email", "type": "text"}
-                  ]
-                }
-              },
-              {  
-                "source": "stage",
-                "table": "shopify_customer_addresses",
-                "data": customer_addresses,  
-                "model": {
-                  "columns": [
-                  {"name": "id", "type": "text"},
-                  {"name": "customer_id", "type": "text"},
-                  {"name": "address1", "type": "text"},
-                  {"name": "address2", "type": "text"},
-                  {"name": "city", "type": "text"},
-                  {"name": "province", "type": "text"},
-                  {"name": "zip", "type": "text"},
-                  {"name": "country", "type": "text"}
-                  ]
-                }
-              }
-            ]
+            "tables": {  
+              "shopify_customers": customers,
+              "shopify_customer_addresses": customer_addresses
+            }
           }

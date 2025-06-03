@@ -6,30 +6,22 @@ steps:
       url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/members"
       method: GET
     response:
-      parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 200:
-            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
-          data = response.json()
-          members = data['members']
-          for m in members: #extract nested fields
-            m['avg_open_rate'] = m.get('stats', {}).get('avg_open_rate')
-            m['avg_click_rate'] = m.get('stats', {}).get('avg_click_rate')
-          return {
-            "tables": [{  
-              "source": "stage",
-              "table": "mailchimp_subscribers",
-              "data": members,
-              "model": {
-                "columns": [
-                {"name": "id", "type": "text"},
-                {"name": "email_address", "type": "text"},
-                {"name": "full_name", "type": "text"},
-                {"name": "status", "type": "text"},
-                {"name": "timestamp_opt", "type": "text"},
-                {"name": "avg_open_rate", "type": "text"},
-                {"name": "avg_click_rate", "type": "text"}         
-                ]
-              }
-            }]
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "mailchimp_subscribers"
+          columns: {
+            "id": "text", "email_address": "text", "full_name": "text", "status": "text", 
+            "timestamp_opt": "text", "avg_open_rate": "text", "avg_click_rate": "text"
           }
+      parser_expression: |
+        data = response.json()
+        members = data['members']
+        for m in members: #extract nested fields
+          m['avg_open_rate'] = m.get('stats', {}).get('avg_open_rate')
+          m['avg_click_rate'] = m.get('stats', {}).get('avg_click_rate')
+        return {
+          "tables": {  
+            "mailchimp_subscribers": members
+          }
+        }

@@ -15,13 +15,11 @@ steps:
         username: "{{ var('salesforce_username') }}"
         password: "{{ var('salesforce_password') }}"
     response:
+      success_status: [200]
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 200:
-            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
-          data = response.json()
-          return {
-            "variables": {
-              "sfdc_instance_url": data["instance_url"]
-              }
-          }
+        data = response.json()
+        return {
+          "variables": {
+            "sfdc_instance_url": data["instance_url"]
+            }
+        }

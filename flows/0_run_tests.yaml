@@ -7,9 +7,15 @@ steps:
     flow: duckdb
 
   - op: run_flow
+    flow: bigcommerce_delete_all_customers
+  - op: run_flow
     flow: bigcommerce_create_customers
   - op: run_flow
-    flow: bigcommerce_fetch_customers
+    flow: bigcommerce_fetch_customers_light
+  - op: run_flow
+    flow: bigcommerce_fetch_customers_variations    
+  - op: run_flow
+    flow: bigcommerce_fetch_customers    
   - op: run_flow
     flow: bigcommerce_delete_customers_helper
     parameters:

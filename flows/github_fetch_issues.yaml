@@ -16,48 +16,37 @@ steps:
         "Accept": "application/vnd.github+json"
         "X-GitHub-Api-Version": "{{ var('api_version') }}"
     response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "github_issues"
+          columns: {"repo_id": "text", "id": "text", "title": "text", "state": "text", "created_at": "text", "updated_at": "text"}
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code == 200:
-
-            # Extract the 'next' URL from GitHub's Link header or return None if there is no next page
-            def get_next_url(link_header):
-              if not link_header:
-                  return None
-              links = link_header.split(',')
-              for link in links:
-                  parts = link.split(';')
-                  if len(parts) > 1 and 'rel="next"' in parts[1]:
-                      return parts[0].strip(' <>')
+        # Extract the 'next' URL from GitHub's Link header or return None if there is no next page
+        def get_next_url(link_header):
+          if not link_header:
               return None
+          links = link_header.split(',')
+          for link in links:
+              parts = link.split(';')
+              if len(parts) > 1 and 'rel="next"' in parts[1]:
+                  return parts[0].strip(' <>')
+          return None
 
-            link_header_value = response.headers.get("link")
-            next_page_url = get_next_url(link_header_value)
+        link_header_value = response.headers.get("link")
+        next_page_url = get_next_url(link_header_value)
 
-            issues = response.json() # array of objects representing issues
-            return {
-              "variables": {
-                "next_page_url": {
-                  "value": next_page_url,
-                  "scope": "local"
-                }
-              },
-              "tables": [{  
-                "source": "stage",
-                "table": "github_issues",
-                "data": issues,
-                "model": {
-                  "columns": [
-                  {"name": "repo_id", "type": "text"},
-                  {"name": "id", "type": "text"},
-                  {"name": "title", "type": "text"},
-                  {"name": "state", "type": "text"},
-                  {"name": "created_at", "type": "text"},
-                  {"name": "updated_at", "type": "text"}
-                  ]
-                }
-              }],
-              "while": next_page_url is not None
+        issues = response.json() # array of objects representing issues
+        return {
+          "variables": {
+            "next_page_url": {
+              "value": next_page_url,
+              "scope": "local"
             }
-          else:
-            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)              
+          },
+          "tables": {  
+            "github_issues": issues
+          },
+          "while": next_page_url is not None
+        }
+          

@@ -16,16 +16,14 @@ steps:
         name: "top_engaged"
         static_segment: []
     response:
+      success_status: [200]
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 200:
-            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
-          data = response.json()
-          return {
-            "variables": {
-              "mailchimp_segment_id": data["id"]
-            }
+        data = response.json()
+        return {
+          "variables": {
+            "mailchimp_segment_id": data["id"]
           }
+        }
   - op: print
     message: "Segment created with ID: {{ var('mailchimp_segment_id') }}"
 
@@ -41,18 +39,13 @@ steps:
       method: post
       body_format: json
       body_expression: |
-        def evaluate(context):
           subscriber = context.var('subscriber')
           return {
             "email_address": subscriber['email_address']
           }
     response:
-      parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 200:
-            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
-          return {
-          }
+      success_status: [200]
+
                 
 
              

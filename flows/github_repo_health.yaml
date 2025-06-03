@@ -9,33 +9,24 @@ steps:
         "Accept": "application/vnd.github+json"
         "X-GitHub-Api-Version": "{{ var('api_version') }}"
     response:
+      success_status: [200]
+      tables: 
+        - source: "duckdb"
+          table: "github_repos"
+          columns: {
+            "id": "text", "name": "text", "full_name": "text", "owner_username": "text", 
+            "open_issues_count": "text", "forks_count": "text", "watchers_count": "text"
+          }
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code == 200:
-            repos = response.json() # array of objects representing repos
-            for repo in repos:
-              # Extract the owner username
-              repo["owner_username"] = repo["owner"]["login"]
-            return {
-              "tables": [{  
-                "source": "duckdb",
-                "table": "github_repos",
-                "data": repos,
-                "model": {
-                  "columns": [
-                  {"name": "id", "type": "text"},
-                  {"name": "name", "type": "text"},
-                  {"name": "full_name", "type": "text"},
-                  {"name": "owner_username", "type": "text"},
-                  {"name": "open_issues_count", "type": "text"},
-                  {"name": "forks_count", "type": "text"},
-                  {"name": "watchers_count", "type": "text"}
-                  ]
-                }
-              }]
-            }
-          else:
-            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)
+        repos = response.json() # array of objects representing repos
+        for repo in repos:
+          # Extract the owner username
+          repo["owner_username"] = repo["owner"]["login"]
+        return {
+          "tables": {  
+            "github_repos": repos
+          }
+        }
   - op: http_request
     id: get_issues
     for_each:
@@ -52,31 +43,21 @@ steps:
         "Accept": "application/vnd.github+json"
         "X-GitHub-Api-Version": "{{ var('api_version') }}"
     response:
+      success_status: [200]
+      tables: 
+        - source: "duckdb"
+          table: "github_issues"
+          columns: {"repo_id": "text", "id": "text", "title": "text", "state": "text", "created_at": "text", "updated_at": "text"}
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code == 200:
-            issues = response.json()
-            for issue in issues:
-              issue["repo_id"] = context.var("repo").get("id")
-            return {
-              "tables": [{  
-                "source": "duckdb",
-                "table": "github_issues",
-                "data": issues,
-                "model": {
-                  "columns": [
-                  {"name": "repo_id", "type": "text"},
-                  {"name": "id", "type": "text"},
-                  {"name": "title", "type": "text"},
-                  {"name": "state", "type": "text"},
-                  {"name": "created_at", "type": "text"},
-                  {"name": "updated_at", "type": "text"}
-                  ]
-                }
-              }]
-            }
-          else:
-            raise Exception("Error response code: " + str(response.status_code) + "; body: " + response.text)     
+        issues = response.json()
+        for issue in issues:
+          issue["repo_id"] = context.var("repo").get("id")
+        return {
+          "tables": {  
+            "github_issues": issues
+          }
+        }
+   
   - op: transform
     id: create_health_report
     source: duckdb
@@ -119,54 +100,46 @@ steps:
         "X-GitHub-Api-Version": "{{ var('api_version') }}"
       body_format: json
       body_expression: |
-        def evaluate(context):
-          # Get the health report data
-          report_data = context.sources.query("duckdb", """
-            SELECT * FROM github_repo_health_report
-          """)
-          
-          # Format the data as markdown table
-          markdown = "# GitHub Repository Health Report\n\n"
-          markdown += "| Repository | Open Issues | Total Issues | Resolution Rate (%) | Avg Age (days) | Stale Issues | Health Status |\n"
-          markdown += "|------------|-------------|--------------|---------------------|----------------|--------------|---------------|\n"
-          
-          for row in report_data:
-            markdown += f"| {row['repository_name']} | {row['actual_open_issues']} | {row['total_issues']} | {row['issue_resolution_rate']} | {row['avg_age_open_issues_days']} | {row['stale_issues_count']} | {row['health_status']} |\n"
-          
-          # Create gist payload
-          return {
-            "description": "GitHub Repository Health Report",
-            "public": False,
-            "files": {
-              "repo_health_report.md": {
-                "content": markdown
-              }
+        # Get the health report data
+        report_data = context.sources.query("duckdb", """
+          SELECT * FROM github_repo_health_report
+        """)
+        
+        # Format the data as markdown table
+        markdown = "# GitHub Repository Health Report\n\n"
+        markdown += "| Repository | Open Issues | Total Issues | Resolution Rate (%) | Avg Age (days) | Stale Issues | Health Status |\n"
+        markdown += "|------------|-------------|--------------|---------------------|----------------|--------------|---------------|\n"
+        
+        for row in report_data:
+          markdown += f"| {row['repository_name']} | {row['actual_open_issues']} | {row['total_issues']} | {row['issue_resolution_rate']} | {row['avg_age_open_issues_days']} | {row['stale_issues_count']} | {row['health_status']} |\n"
+        
+        # Create gist payload
+        return {
+          "description": "GitHub Repository Health Report",
+          "public": False,
+          "files": {
+            "repo_health_report.md": {
+              "content": markdown
             }
           }
+        }
     response:
+      success_status: [201]
+      tables: 
+        - source: "duckdb"
+          table: "github_gist_created"
+          columns: {"id": "text", "html_url": "text", "created_at": "text"}
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code == 201:
-            gist_data = response.json()
-            return {
-              "variables": {
-                "gist_url": gist_data["html_url"]
-              },
-              "tables": [{  
-                "source": "duckdb",
-                "table": "github_gist_created",
-                "data": [gist_data],
-                "model": {
-                  "columns": [
-                  {"name": "id", "type": "text"},
-                  {"name": "html_url", "type": "text"},
-                  {"name": "created_at", "type": "text"}
-                  ]
-                }
-              }]
-            }
-          else:
-            raise Exception("Error creating gist: " + str(response.status_code) + "; body: " + response.text)
+        gist_data = response.json()
+        return {
+          "variables": {
+            "gist_url": gist_data["html_url"]
+          },
+          "tables": {  
+            "github_gist_created": [gist_data]
+          }
+        }
+
   - op: print
     id: print_gist_url
     message: "Gist URL created: {{ var('gist_url') }}"

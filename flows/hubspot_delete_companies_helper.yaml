@@ -11,10 +11,5 @@ steps:
       url: "https://api.hubapi.com/crm/{{ var('api_version') }}/objects/companies/{{ var('company').get('id') }}"
       method: DELETE
     response:
-      parser_expression: |
-        def evaluate(context, response):
-          status_code = response.status_code
-          if status_code != 204:
-            raise Exception(f"Error status code: {status_code} deleting record '{var('company').get('id')}' body: {response.text}")
-          return {
-          }     
+      success_status: [204]
+   

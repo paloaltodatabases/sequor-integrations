@@ -13,22 +13,17 @@ steps:
         "Accept": "application/json"
         "Content-Type": "application/json"
     response:
+      success_status: [204]
+      tables: 
+        - source: "stage"
+          table: "sfdc_accounts_deleted"
+          columns: {"sfdc_id": "text"}
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 204:
-            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
-          record = {
-            "sfdc_id": context.var("account").get("sfdc_id"),
+        record = {
+          "sfdc_id": context.var("account").get("sfdc_id"),
+        }
+        return {
+          "tables": {  
+            "sfdc_accounts_deleted": [record]
           }
-          return {
-            "tables": [{  
-              "source": "stage",
-              "table": "sfdc_accounts_deleted",
-              "data": [record],  
-              "model": {
-                "columns": [
-                {"name": "sfdc_id", "type": "text"}
-                ]
-              }
-            }]
-          }
+        }

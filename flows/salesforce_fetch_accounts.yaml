@@ -9,19 +9,17 @@ steps:
         "Accept": "application/json"
         "Content-Type": "application/json"
     response:
+      success_status: [200]
       parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 200:
-            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
-          json_data = response.json()
-          fields = json_data["fields"]
-          field_names_joined = ", ".join(field["name"] for field in fields)
-          return {
-            "variables": {
-              "account_fields": fields,
-              "account_field_names_joined": field_names_joined
-            }
+        json_data = response.json()
+        fields = json_data["fields"]
+        field_names_joined = ", ".join(field["name"] for field in fields)
+        return {
+          "variables": {
+            "account_fields": fields,
+            "account_field_names_joined": field_names_joined
           }
+        }
             
   - op: http_request
     id: get_accounts
@@ -35,11 +33,9 @@ steps:
         "Accept": "application/json"
         "Content-Type": "application/json"
     response:
+      success_status: [200]
       parser_expression: |
-        def evaluate(context, response):
           import json
-          if response.status_code != 200:
-            raise Exception(f"Error status code: {response.status_code}, body: {response.text}")
           records = response.json()['records']
           columns_schema = [{"name": field["name"], "type": "text"} for field in context.var("account_fields")]
           return {
@@ -47,9 +43,7 @@ steps:
               "source": "stage",
               "table": "sfdc_accounts",
               "data": records,  
-              "model": {
-                "columns": columns_schema
-              }
+              "columns": columns_schema
             }]
           }
 
