@@ -38,7 +38,9 @@ steps:
       input_table: "hubspot_companies_inserted"
 
   - op: run_flow
-    flow: mailchimp_fetch_subscribers
+    flow: mailchimp_fetch_members
+  - op: run_flow
+    flow: mailchimp_update_members    
   - op: run_flow
     flow: mailchimp_create_segment
   - op: run_flow

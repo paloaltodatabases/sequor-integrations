@@ -1,0 +1,78 @@
+steps:
+  - op: execute
+    id: create_sample_customer_metrics_table
+    source: "stage"
+    statement: |
+      drop table if exists mailchimp_customer_metrics;
+      go
+
+      create table mailchimp_customer_metrics (
+          email text,
+          total_spent NUMERIC(10, 2),
+          order_count integer,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      go
+      
+      insert into mailchimp_customer_metrics (email, total_spent, order_count) values
+        ('gomez@gomeztech.com', 12000.50, 1009),
+        ('maxim@paloaltodatabases.com', 250, 7)
+      go
+
+  - op: transform
+    source: stage
+    target_table: mailchimp_members_to_update
+    query: |
+      SELECT 
+        email,
+        total_spent,
+        order_count,
+        CASE 
+          WHEN total_spent > 1000 THEN 'VIP'
+          WHEN total_spent > 500 THEN 'High Value'
+          WHEN order_count > 5 THEN 'Loyal'
+          ELSE 'Regular'
+        END as customer_segment
+      FROM mailchimp_customer_metrics
+      WHERE updated_at >= CURRENT_DATE - 1
+    
+  - op: http_request
+    id: update_mailchimp_members
+    for_each:
+      source: "stage"
+      table: "mailchimp_members_to_update"
+      as: member
+    request:
+      source: "mailchimp"
+      url_expression: |
+        email = context.var('member')['email']
+        import hashlib
+        subscriber_hash = hashlib.md5(email.lower().encode()).hexdigest()
+        return "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/members/" + subscriber_hash
+      method: PATCH
+      parameters:
+        skip_merge_validation: true
+      body_format: json
+      body_expression: |
+          member = context.var('member')
+          return {
+            "merge_fields": {
+              "TOTALSPENT": float(member['total_spent']),
+              "ORDERCOUNT": member['order_count']
+            }
+          }
+    response:
+      success_status: [200]
+      # tables: 
+      #   - source: "stage"
+      #     table: "mailchimp_members_updated"
+      #     columns: {"id": "text", "email_address": "text", "total_spent": "text", "order_count": "text"}
+      # parser_expression: |
+      #   member_updated = response.json()
+      #   member_updated["total_spent"] = member_updated.get("merge_fields", {}).get("TOTALSPENT")
+      #   member_updated["order_count"] = member_updated.get("merge_fields", {}).get("ORDERCOUNT")
+      #   return {
+      #     "tables": {  
+      #       "mailchimp_members_updated": [member_updated]
+      #     }
+      #   }

@@ -1,9 +1,11 @@
 steps:
   - op: http_request
-    id: get_subscribers
+    id: get_members
     request:
       source: "mailchimp"
       url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/members"
+      parameters:
+        count: 1000  # Adjust as needed, Mailchimp API supports up to 1000 per request
       method: GET
     response:
       success_status: [200]
