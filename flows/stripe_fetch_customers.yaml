@@ -1,0 +1,35 @@
+steps:
+  - op: http_request
+    id: get_customers
+    request:
+      source: "stripe"
+      url: "https://api.stripe.com/{{ var('api_version') }}/customers"
+      method: GET
+      parameters_expression: |
+        return {
+          "limit": 10,  # small for testing; Stripe API supports up to 100 per request
+          "starting_after": context.var("last_customer_id") if context.is_var_defined("last_customer_id") else None
+        }
+    response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "stripe_customers"
+          columns: {"id": "text", "email": "text", "name": "text"}
+      parser_expression: |
+          res = response.json()
+          customers = res['data']
+          has_more = res.get('has_more')
+          return {
+            "variables": {
+              "last_customer_id": {
+                "value": customers[-1]['id'], # Store last customer ID for pagination
+                "scope": "local"  # Use local scope to avoid conflicts in other steps
+              }
+            },
+            "tables": {
+              "stripe_customers": customers
+            },
+            "while": has_more  # Continue fetching if there are more customers
+          }
+

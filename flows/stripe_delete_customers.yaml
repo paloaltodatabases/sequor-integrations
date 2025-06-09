@@ -1,0 +1,31 @@
+
+steps:
+  - op: http_request
+    id: delete_customers
+    for_each:
+      source: "stage"
+      table: "stripe_customers_inserted"
+      as: customer
+    request:
+      source: "stripe"
+      url_expression: |
+        return "https://api.stripe.com/{{ var('api_version') }}/customers/" + context.var("customer").get("id")
+      method: DELETE
+    response:
+      success_status: [200]
+      # tables: 
+      #   - source: "stage"
+      #     table: "stripe_customers_inserted"
+      #     columns: {id: "text", "source_id": "text", "name": "text", "email": "text"}
+      # parser_expression: |
+      #   # extract customer with newly generated customer ID
+      #   customers_created = response.json()
+      #   # add the source ID
+      #   customers_created['source_id'] = context.var("customer").get("id")
+      #   return {
+      #     "tables": {  
+      #       "stripe_customers_inserted": [ customers_created ]
+      #     }
+      #   } 
+
+  

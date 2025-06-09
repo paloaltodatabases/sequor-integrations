@@ -4,10 +4,10 @@ steps:
     id: create_customers_table
     source: "stage"
     statement: |
-      drop table if exists bc_customers_to_insert;
+      drop table if exists stripe_customers_to_insert;
       go
 
-      create table bc_customers_to_insert (
+      create table stripe_customers_to_insert (
           id text,
           first_name text,
           last_name text,
@@ -15,7 +15,7 @@ steps:
       );
       go
       
-      insert into bc_customers_to_insert (id, first_name, last_name, email) values
+      insert into stripe_customers_to_insert (id, first_name, last_name, email) values
         (1, 'Bob', 'Smith', 'bob@smith.net'),
         (2, 'Jane', 'Brown', 'jane@brown.net'),
         (3, 'Max', 'Brown', 'max@brown.net'),
@@ -33,40 +33,33 @@ steps:
     id: create_customers
     for_each:
       source: "stage"
-      table: "bc_customers_to_insert"
+      table: "stripe_customers_to_insert"
       as: customer
     request:
-      source: "bigcommerce"
-      url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
+      source: "stripe"
+      url: "https://api.stripe.com/{{ var('api_version') }}/customers"
       method: POST
-      headers:
-        "Content-Type": "application/json"
-      body_format: json
+      body_format: form_urlencoded
       body_expression: |
-          return [{
-            "first_name": context.var("customer").get("first_name"),
-            "last_name": context.var("customer").get("last_name"),
-            "email": context.var("customer").get("email")
-          }]         
-      # Equivalent version using body_expression
-      # body:
-      #   - "first_name": "{{ var('customer').get('first_name', '__NULL__') }}"
-      #     "last_name": "{{ var('customer').get('last_name', '__NULL__') }}"
-      #     "email": "{{ var('customer').get('email', '__NULL__') }}"
+        customer = context.var("customer")
+        return {
+          "name": customer.get("first_name") + " " + customer.get("last_name"),
+          "email": customer.get("email")
+        }     
     response:
       success_status: [200]
       tables: 
         - source: "stage"
-          table: "bc_customers_inserted"
-          columns: {id: "text", "source_id": "text", "first_name": "text", "last_name": "text", "email": "text"}
+          table: "stripe_customers_inserted"
+          columns: {id: "text", "source_id": "text", "name": "text", "email": "text"}
       parser_expression: |
         # extract customer with newly generated customer ID
-        customers_created = response.json()['data'][0]
+        customers_created = response.json()
         # add the source ID
         customers_created['source_id'] = context.var("customer").get("id")
         return {
           "tables": {  
-            "bc_customers_inserted": [ customers_created ]
+            "stripe_customers_inserted": [ customers_created ]
           }
         } 
 
