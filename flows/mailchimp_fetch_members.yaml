@@ -16,14 +16,11 @@ steps:
             "id": "text", "email_address": "text", "full_name": "text", "status": "text", 
             "timestamp_opt": "text", "avg_open_rate": "text", "avg_click_rate": "text"
           }
-      parser_expression: |
-        data = response.json()
-        members = data['members']
-        for m in members: #extract nested fields
-          m['avg_open_rate'] = m.get('stats', {}).get('avg_open_rate')
-          m['avg_click_rate'] = m.get('stats', {}).get('avg_click_rate')
-        return {
-          "tables": {  
-            "mailchimp_subscribers": members
-          }
-        }
+          data_expression: |
+            data = response.json()
+            members = data['members']
+            for m in members: #extract nested fields
+              m['avg_open_rate'] = m.get('stats', {}).get('avg_open_rate')
+              m['avg_click_rate'] = m.get('stats', {}).get('avg_click_rate')
+            return members
+

@@ -4,11 +4,10 @@ steps:
     request:
       source: "github"
       url_expression: |
-        def evaluate(context):
-          if context.is_var_defined("next_page_url"):
-            return context.var("next_page_url")
-          else:
-            return "https://api.github.com/repos/{{ var('github_username') }}/{{ var('github_repo_name') }}/issues"
+        if context.is_var_defined("next_page_url"):
+          return context.var("next_page_url")
+        else:
+          return "https://api.github.com/repos/{{ var('github_username') }}/{{ var('github_repo_name') }}/issues"
       method: GET
       parameters:
         per_page: 2 # small number for testing. Use 100 or even 1000 for production
@@ -21,32 +20,26 @@ steps:
         - source: "stage"
           table: "github_issues"
           columns: {"repo_id": "text", "id": "text", "title": "text", "state": "text", "created_at": "text", "updated_at": "text"}
-      parser_expression: |
-        # Extract the 'next' URL from GitHub's Link header or return None if there is no next page
-        def get_next_url(link_header):
-          if not link_header:
-              return None
-          links = link_header.split(',')
-          for link in links:
-              parts = link.split(';')
-              if len(parts) > 1 and 'rel="next"' in parts[1]:
-                  return parts[0].strip(' <>')
-          return None
+          data_expression: response.json()
+      variables:
+        next_page_url_expression: |
+          # Extract the 'next' URL from GitHub's Link header or return None if there is no next page
+          def get_next_url(link_header):
+            if not link_header:
+                return None
+            links = link_header.split(',')
+            for link in links:
+                parts = link.split(';')
+                if len(parts) > 1 and 'rel="next"' in parts[1]:
+                    return parts[0].strip(' <>')
+            return None
 
-        link_header_value = response.headers.get("link")
-        next_page_url = get_next_url(link_header_value)
-
-        issues = response.json() # array of objects representing issues
-        return {
-          "variables": {
-            "next_page_url": {
-              "value": next_page_url,
-              "scope": "local"
-            }
-          },
-          "tables": {  
-            "github_issues": issues
-          },
-          "while": next_page_url is not None
-        }
+          link_header_value = response.headers().get("link")
+          next_page_url = get_next_url(link_header_value)
+          return {
+            "value": next_page_url, # sets to None if no next page -> no variable created
+            "scope": "local"  
+          }
+      while_expression: is_var_defined('next_page_url')
+      
           

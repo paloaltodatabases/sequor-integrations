@@ -1,4 +1,47 @@
 steps:
+  # - op: http_request
+  #   id: get_customers
+  #   request:
+  #     source: "shopify"
+  #     url: "https://{{ var('store_name') }}.myshopify.com/admin/api/{{ var('api_version') }}/customers.json"
+  #     method: GET
+  #     headers:
+  #       "Accept": "application/json"
+  #   response:
+  #     success_status: [200]
+  #     tables: 
+  #       - source: "stage"
+  #         table: "shopify_customers"
+  #         columns: {
+  #           "id": "text", "first_name": "text", "last_name": "text", "email": "text"
+  #         }
+  #       - source: "stage"
+  #         table: "shopify_customer_addresses"
+  #         columns: {
+  #           "id": "text", "customer_id": "text", "address1": "text", "address2": "text",
+  #           "city": "text", "province": "text", "zip": "text", "country": "text"
+  #         }
+  #     parser_expression: |
+  #         customers = response.json()['customers']          
+  #         customer_addresses = []
+  #         for customer in customers:
+          
+  #           # flattening the nested object
+  #           customer['email_consent_state'] = customer['email_marketing_consent']['state'] 
+  #           customer['opt_in_level'] = customer['email_marketing_consent'].get('single_opt_in') 
+            
+  #           # extract nested list of addresses and add customer_id to each address for reference
+  #           for address in customer['addresses']:
+  #             # in Shopify each address already has a customer_id field but we assume they don't to demonstrate enriching the data with reference to the customer
+  #             address['customer_id'] = customer['id'] 
+  #             customer_addresses.append(address)
+              
+  #         return {
+  #           "tables": {  
+  #             "shopify_customers": customers,
+  #             "shopify_customer_addresses": customer_addresses
+  #           }
+  #         }
   - op: http_request
     id: get_customers
     request:
@@ -15,30 +58,27 @@ steps:
           columns: {
             "id": "text", "first_name": "text", "last_name": "text", "email": "text"
           }
+          data_expression: |
+            customers = response.json()['customers']          
+            for customer in customers:            
+              # flattening the nested object
+              customer['email_consent_state'] = customer['email_marketing_consent'].get('state') 
+              customer['opt_in_level'] = customer['email_marketing_consent'].get('single_opt_in')
+            return customers
         - source: "stage"
           table: "shopify_customer_addresses"
           columns: {
             "id": "text", "customer_id": "text", "address1": "text", "address2": "text",
             "city": "text", "province": "text", "zip": "text", "country": "text"
           }
-      parser_expression: |
-          customers = response.json()['customers']          
-          customer_addresses = []
-          for customer in customers:
-          
-            # flattening the nested object
-            customer['email_consent_state'] = customer['email_marketing_consent']['state'] 
-            customer['opt_in_level'] = customer['email_marketing_consent'].get('single_opt_in') 
-            
-            # extract nested list of addresses and add customer_id to each address for reference
-            for address in customer['addresses']:
-              # in Shopify each address already has a customer_id field but we assume they don't to demonstrate enriching the data with reference to the customer
-              address['customer_id'] = customer['id'] 
-              customer_addresses.append(address)
-              
-          return {
-            "tables": {  
-              "shopify_customers": customers,
-              "shopify_customer_addresses": customer_addresses
-            }
-          }
+          data_expression: |
+            customers = response.json()['customers']          
+            customer_addresses = []
+            for customer in customers:              
+              # extract nested list of addresses and add customer_id to each address for reference
+              for address in customer['addresses']:
+                # in Shopify each address already has a customer_id field but we assume they don't to demonstrate enriching the data with reference to the customer
+                address['customer_id'] = customer['id'] 
+                customer_addresses.append(address)
+            return customer_addresses
+

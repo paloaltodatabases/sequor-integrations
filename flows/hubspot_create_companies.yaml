@@ -31,11 +31,10 @@ steps:
         "Content-Type": "application/json"
       body_format: json
       body_expression: |
-        def evaluate(context):
           return {
             "properties": {
-              "name": context.var("company").get("name"),
-              "domain": context.var("company").get("domain")
+              "name": var("company").get("name"),
+              "domain": var("company").get("domain")
             }
           }          
     response:
@@ -44,12 +43,9 @@ steps:
         - source: "stage"
           table: "hubspot_companies_inserted"
           columns: {"id": "text", "source_id": "text", "name": "text"}
-      parser_expression: |
-        company_created = response.json()
-        company_created['source_id'] = context.var("company").get("id")
-        company_created['name'] = company_created['properties'].get('name')
-        return {
-          "tables": {  
-            "hubspot_companies_inserted": [ company_created ]
-          }
-        } 
+          data_expression: |
+            company_created = response.json()
+            company_created['source_id'] = context.var("company").get("id")
+            company_created['name'] = company_created['properties'].get('name')
+            return [ company_created ]
+

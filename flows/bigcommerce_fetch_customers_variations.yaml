@@ -1,33 +1,118 @@
 steps:
-  - op: http_request 
-    # v1.0.2 - before HackerNews release feedback
-    id: get_customers
+  # - op: http_request 
+  #   # v1.0.2 - before HackerNews release feedback
+  #   id: get_customers
+  #   request:
+  #     source: "bigcommerce"
+  #     url_expression: |
+  #       return "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
+  #     method: GET
+  #     headers:
+  #       "Accept": "application/json"
+  #   response:
+  #     parser_expression: |
+  #       def evaluate(context, response):
+  #         if response.status_code != 200:
+  #           raise Exception(f"Error status code: {response.status_code}. Body: {response.text}")
+  #         data_parsed = response.json()
+  #         customers = data_parsed['data']
+  #         return {
+  #           "tables": [{
+  #             "source": "stage",
+  #             "table": "bc_customers",
+  #             "model": {
+  #               "columns": [
+  #                 {"name": "id", "type": "text"},
+  #                 {"name": "first_name", "type": "text"},
+  #                 {"name": "last_name", "type": "text"}
+  #               ]
+  #             },
+  #             "data": customers
+  #           }]
+  #         }
+  - op: http_request
+    id: get_customers_without_pagenation
     request:
       source: "bigcommerce"
-      url_expression: |
-        return "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
+      url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
       method: GET
       headers:
         "Accept": "application/json"
     response:
-      parser_expression: |
-        def evaluate(context, response):
-          if response.status_code != 200:
-            raise Exception(f"Error status code: {response.status_code}. Body: {response.text}")
-          data_parsed = response.json()
-          customers = data_parsed['data']
-          return {
-            "tables": [{
-              "source": "stage",
-              "table": "bc_customers",
-              "model": {
-                "columns": [
-                  {"name": "id", "type": "text"},
-                  {"name": "first_name", "type": "text"},
-                  {"name": "last_name", "type": "text"}
-                ]
-              },
-              "data": customers
-            }]
-          }
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "bc_customers"
+          columns: {"id": "text", "first_name": "text", "last_name": "text"}
+          data_expression: response.json()['data']
 
+  - op: http_request
+    id: get_customers_with_parser
+    init:
+      variables:
+        next_page: 1 # start from page 1
+    request:
+      source: "bigcommerce"
+      url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
+      method: GET
+      parameters_expression: |
+        return {
+          "limit": 5, # small for testing, use 1000 for production
+          "page": var("next_page") 
+        }
+      headers:
+        "Accept": "application/json"
+    response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "bc_customers"
+          columns: {"id": "text", "first_name": "text", "last_name": "text"}
+      parser_expression: |
+        json_data = response.json()
+        current_page = json_data["meta"]["pagination"]["current_page"]; # integer
+        total_pages = json_data["meta"]["pagination"]["total_pages"]; # integer
+        return {
+          "variables": {
+            "next_page": current_page + 1
+          },
+          "tables": {
+            "bc_customers": json_data["data"]
+          },
+          "while": current_page < total_pages
+        }
+  - op: http_request
+    id: get_customers_with_response_expression
+    init:
+      variables:
+        next_page: 1 # start from page 1
+    request:
+      source: "bigcommerce"
+      url: "https://api.bigcommerce.com/stores/{{ var('store_hash') }}/{{ var('api_version') }}/customers"
+      method: GET
+      parameters:
+        limit: 5 # small for testing, use 1000 for production
+        page_expression: var("next_page")
+      headers:
+        "Accept": "application/json"
+    response_expression: |
+      json_data = response.json()
+      pagination = json_data["meta"]["pagination"];
+      current_page = pagination["current_page"];
+      total_pages = pagination["total_pages"];
+      data = json_data["data"]
+      return {
+        "success_status": [200],
+        "tables": [
+          {
+            "source": "stage",
+            "table": "bc_customers",
+            "columns": {"id": "text", "first_name": "text", "last_name": "text"},
+            "data": data
+          }
+        ],
+        "variables": {
+          "next_page": current_page + 1
+        },
+        "while": current_page < total_pages
+      }

@@ -54,7 +54,7 @@ steps:
         skip_merge_validation: true
       body_format: json
       body_expression: |
-          member = context.var('member')
+          member = var('member')
           return {
             "merge_fields": {
               "TOTALSPENT": float(member['total_spent']),
@@ -63,16 +63,12 @@ steps:
           }
     response:
       success_status: [200]
-      # tables: 
-      #   - source: "stage"
-      #     table: "mailchimp_members_updated"
-      #     columns: {"id": "text", "email_address": "text", "total_spent": "text", "order_count": "text"}
-      # parser_expression: |
-      #   member_updated = response.json()
-      #   member_updated["total_spent"] = member_updated.get("merge_fields", {}).get("TOTALSPENT")
-      #   member_updated["order_count"] = member_updated.get("merge_fields", {}).get("ORDERCOUNT")
-      #   return {
-      #     "tables": {  
-      #       "mailchimp_members_updated": [member_updated]
-      #     }
-      #   }
+      tables: 
+        - source: "stage"
+          table: "mailchimp_members_updated"
+          columns: {"id": "text", "email_address": "text", "total_spent": "text", "order_count": "text"}
+          data_expression: |
+            member_updated = response.json()
+            member_updated["total_spent"] = member_updated.get("merge_fields", {}).get("TOTALSPENT")
+            member_updated["order_count"] = member_updated.get("merge_fields", {}).get("ORDERCOUNT")
+            return [member_updated]

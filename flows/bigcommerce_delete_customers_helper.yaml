@@ -16,7 +16,7 @@ steps:
         "Content-Type": "application/json"
     response:
       parser_expression: |
-          if response.status_code != 204:
-            raise Exception(f"Error status code: {response.status_code} deleting record '{var('customer').get('id')}' body: {response.text}")
+          if response.status_code() != 204:
+            raise Exception(f"Error status code: {response.status_code()} deleting record '{var('customer').get('id')}' body: {response.text}")
           return {
           }        

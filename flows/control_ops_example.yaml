@@ -1,25 +1,4 @@
 steps:
-  - op: set_variable
-    id: set_var1
-    set:
-      "var1": "value1" # Project scope variable - persists after flow execution
-      "var2": { # Local scope variable - temporary during flow execution
-        value: "value2",
-        scope: "local"
-      }
-  - op: if
-    conditions:
-      - condition: '{{ var("var1") == "value1" }}'
-        then:
-          - op: print
-            message: "IF->THEN branch executed"
-    else:
-      - op: print
-        message: "IF->ELSE branch executed"
-  - op: block
-    steps:
-      - op: print
-        message: "inside BLOCK"
   - op: execute
     id: create_example_table
     source: "stage"
@@ -38,6 +17,38 @@ steps:
         (1, 'Bob', 'Smith'),
         (2, 'Jane', null);
       go
+  - op: set_variable
+    id: set_var1
+    set:
+      "var1": "value1" # Project scope variable - persists after flow execution
+      "var2": { # Local scope variable - temporary during flow execution
+        value: "value2",
+        scope: "local"
+      }
+  - op: if
+    id: check_var1_value
+    conditions:
+      - condition_expression: var("var1") == "value2"
+        then:
+          - op: print
+            message: "THEN branch: var1 equals value2"
+    else:
+      - op: print
+        message: "ELSE branch: var1 does not equal value2"
+  - op: if
+    id: check_via_query_in_condition
+    conditions:
+      - condition_expression: query_scalar("stage", "select count(*) from control_ops_users") == 2
+        then:
+          - op: print
+            message: "THEN branch: control_ops_users has 2 rows"
+    else:
+      - op: print
+        message: "ELSE branch: control_ops_users count is not 2"        
+  - op: block
+    steps:
+      - op: print
+        message: "inside BLOCK"
   - op: for_each
     source: stage
     table: control_ops_users

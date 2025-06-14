@@ -35,9 +35,7 @@ steps:
       as: repo
     request:
       source: "github"
-      url_expression: |
-        def evaluate(context):
-          return f"https://api.github.com/repos/{ context.var('repo').get('owner_username') }/{ context.var('repo').get('name') }/issues"
+      url_expression: f"https://api.github.com/repos/{ var('repo').get('owner_username') }/{ var('repo').get('name') }/issues"
       method: GET
       headers:
         "Accept": "application/vnd.github+json"
@@ -48,15 +46,11 @@ steps:
         - source: "duckdb"
           table: "github_issues"
           columns: {"repo_id": "text", "id": "text", "title": "text", "state": "text", "created_at": "text", "updated_at": "text"}
-      parser_expression: |
-        issues = response.json()
-        for issue in issues:
-          issue["repo_id"] = context.var("repo").get("id")
-        return {
-          "tables": {  
-            "github_issues": issues
-          }
-        }
+          data_expression: | 
+            issues = response.json()
+            for issue in issues:
+              issue["repo_id"] = context.var("repo").get("id")
+            return issues 
    
   - op: transform
     id: create_health_report
@@ -129,16 +123,9 @@ steps:
         - source: "duckdb"
           table: "github_gist_created"
           columns: {"id": "text", "html_url": "text", "created_at": "text"}
-      parser_expression: |
-        gist_data = response.json()
-        return {
-          "variables": {
-            "gist_url": gist_data["html_url"]
-          },
-          "tables": {  
-            "github_gist_created": [gist_data]
-          }
-        }
+          data_expression: return [response.json()]
+      variables:
+        gist_url_expression: response.json()["html_url"]
 
   - op: print
     id: print_gist_url

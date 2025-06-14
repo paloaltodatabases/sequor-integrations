@@ -1,0 +1,140 @@
+steps:
+  - op: set_variable
+    id: set_sfdc_last_sync_time
+    set:
+      sfdc_last_sync_time: "2025-05-15T00:00:00Z"
+
+  - op: http_request
+    id: get_account_schema
+    request:
+      source: "salesforce"
+      url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/sobjects/Account/describe"
+      method: GET
+      headers:
+        "Accept": "application/json"
+    response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "sfdc_account_columns"
+          columns: { "name": "text", "type": "text"}
+      parser_expression: |
+        json_data = response.json()
+        fields = json_data["fields"]
+        field_names_soql = ", ".join(field["name"] for field in fields)
+        field_names_psql = ", ".join(f'"{field["name"]}"' for field in fields)
+
+        return {
+          "tables": {
+            "sfdc_account_columns": fields
+          },
+          "variables": {
+            "account_fields": fields,
+            "account_field_names_soql": field_names_soql,
+            "account_field_names_psql": field_names_psql
+
+          }
+        }
+
+  - op: execute
+    id: map_column_types
+    source: "stage"
+    statement: |
+      DROP TABLE IF EXISTS sfdc_type_mapping;
+      go
+      CREATE TABLE sfdc_type_mapping (sfdc_type text, db_type text);
+      go
+
+      INSERT INTO sfdc_type_mapping (sfdc_type, db_type) VALUES
+        ('int', 'integer'),
+        ('currency', 'numeric'),
+        ('boolean', 'boolean');
+      go
+
+      DROP TABLE IF EXISTS sfdc_account_columns_psql;
+      go
+      CREATE TABLE IF NOT EXISTS sfdc_account_columns_psql as
+      select c.name, coalesce(m.db_type, 'text') as type
+      from sfdc_account_columns c
+      left join sfdc_type_mapping m on c.type = m.sfdc_type
+      go
+
+  - op: migrate_schema
+    target_source: "stage"
+    target_table: "sfdc_accounts_synced"
+    columns_source: "stage"
+    columns_table: "sfdc_account_columns"
+
+  - op: http_request
+    id: get_accounts_new_and_updated
+    request:
+      source: "salesforce"
+      url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/queryAll/"
+      method: GET
+      parameters: 
+        "q": "select {{ var('account_field_names_soql') }} from Account where SystemModstamp >= {{ var('sfdc_last_sync_time') }} and IsDeleted = true"
+      headers:
+        "Accept": "application/json"
+        "Content-Type": "application/json"
+    response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "sfdc_accounts_new_and_updated"
+          columns_expression: |
+            column_rows = context.load("stage", "sfdc_account_columns_psql")
+            columns_schema = [{"name": c.get("name"), "type": c.get("type")} for c in column_rows]
+            return columns_schema
+      parser_expression: |
+          records = response.json()['records']
+          return {
+            "tables": {  
+              "sfdc_accounts_new_and_updated": records,
+            }
+          }
+
+  - op: execute
+    id: upsert_accounts_new_and_updated
+    source: "stage"
+    statement: |
+      DELETE FROM sfdc_accounts_synced AS synced
+      USING sfdc_accounts_new_and_updated AS updated
+      WHERE synced."Id" = updated."Id";
+      go
+
+      INSERT INTO sfdc_accounts_synced ({{ var('account_field_names_psql') }})
+      SELECT {{ var('account_field_names_psql') }}
+      FROM sfdc_accounts_new_and_updated
+      go
+
+  - op: http_request
+    id: get_accounts_deleted
+    request:
+      source: "salesforce"
+      url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/sobjects/Account/deleted/?start={{ var('sfdc_last_sync_time') }}&end=2025-06-09T00:00:00Z"
+      method: GET
+      headers:
+        "Accept": "application/json"
+    response:
+      success_status: [200]
+      tables: 
+        - source: "stage"
+          table: "sfdc_accounts_deleted"
+          columns: { "id": "text", "deletedDate": "text" }
+      parser_expression: |
+          records = response.json()['deletedRecords']
+          return {
+            "tables": {  
+              "sfdc_accounts_deleted": records
+            }
+          }
+      
+  - op: execute
+    id: delete_accounts_deleted
+    source: "stage"
+    statement: |
+      DELETE FROM sfdc_accounts_synced AS synced
+      USING sfdc_accounts_deleted AS deleted
+      WHERE synced."Id" = deleted.id;
+      go
+

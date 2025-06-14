@@ -13,16 +13,12 @@ steps:
         - source: "stage"
           table: "hubspot_companies"
           columns: {"id": "text", "name": "text", "domain": "text"}
-      parser_expression: |
-        data_parsed = response.json()
-        companies = data_parsed.get('results', [])
-        companies_flat = []
-        for company in companies:
-          company_properties = company.get('properties', {})
-          company_properties['id'] = company.get('id')
-          companies_flat.append(company_properties)
-        return {
-          "tables": {
-            "hubspot_companies": companies_flat
-          }
-        }
+          data_expression: |
+            data_parsed = response.json()
+            companies = data_parsed.get('results', [])
+            companies_flat = []
+            for company in companies:
+              company_properties = company.get('properties', {})
+              company_properties['id'] = company.get('id')
+              companies_flat.append(company_properties)
+            return companies_flat

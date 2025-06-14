@@ -16,20 +16,12 @@ steps:
         - source: "stage"
           table: "stripe_customers"
           columns: {"id": "text", "email": "text", "name": "text"}
-      parser_expression: |
-          res = response.json()
-          customers = res['data']
-          has_more = res.get('has_more')
-          return {
-            "variables": {
-              "last_customer_id": {
-                "value": customers[-1]['id'], # Store last customer ID for pagination
-                "scope": "local"  # Use local scope to avoid conflicts in other steps
-              }
-            },
-            "tables": {
-              "stripe_customers": customers
-            },
-            "while": has_more  # Continue fetching if there are more customers
-          }
+          data_expression: |
+            return response.json()['data']  
+      variables:
+        last_customer_id:
+          value_expression: response.json()['data'][-1]['id'] # Store last customer ID for pagination
+          scope: "local"  
+      while_expression: response.json().get('has_more')  # Continue fetching if there are more customers
+
 

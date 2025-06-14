@@ -5,6 +5,7 @@ steps:
     query: |
       select * from mailchimp_subscribers order by avg_open_rate desc limit 3
     target_table: "mailchimp_subscribers_top_engaged"
+
   - op: http_request
     id: create_segment
     request:
@@ -13,17 +14,13 @@ steps:
       method: post
       body_format: json
       body:
-        name: "top_engaged"
+        name: "sequor_top_engaged"
         static_segment: []
     response:
       success_status: [200]
-      parser_expression: |
-        data = response.json()
-        return {
-          "variables": {
-            "mailchimp_segment_id": data["id"]
-          }
-        }
+      variables:
+        mailchimp_segment_id_expression: response.json()["id"]
+
   - op: print
     message: "Segment created with ID: {{ var('mailchimp_segment_id') }}"
 
@@ -39,7 +36,7 @@ steps:
       method: post
       body_format: json
       body_expression: |
-          subscriber = context.var('subscriber')
+          subscriber = var('subscriber')
           return {
             "email_address": subscriber['email_address']
           }

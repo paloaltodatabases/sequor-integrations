@@ -32,7 +32,7 @@ steps:
         "Content-Type": "application/json"
       body_format: json
       body_expression: |
-        account = context.var("account").to_dict()
+        account = var("account").to_dict()
         del account["id"]  # Remove the id field from the account dict as Salesforce does not accept it
         return account
     response:
@@ -41,19 +41,15 @@ steps:
         - source: "stage"
           table: "sfdc_accounts_inserted"
           columns: {"sfdc_id": "text", "id": "text"}
-      parser_expression: |
-        res = response.json()
-        if res["success"] != True:
-          raise Exception(f"Error from Salesforce: {str(res['errors'])}")
-        record = {
-          "sfdc_id": res["id"],
-          "id": context.var("account").get("id"),
-        }
-        return {
-          "tables": {  
-            "sfdc_accounts_inserted": [record]
-          }
-        }
+          data_expression: |
+            res = response.json()
+            if res["success"] != True:
+              raise Exception(f"Error from Salesforce: {str(res['errors'])}")
+            record = {
+              "sfdc_id": res["id"],
+              "id": var("account").get("id"),
+            }
+            return [record]
 
 
 

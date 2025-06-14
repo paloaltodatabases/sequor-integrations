@@ -18,12 +18,9 @@ steps:
         - source: "stage"
           table: "sfdc_accounts_deleted"
           columns: {"sfdc_id": "text"}
-      parser_expression: |
-        record = {
-          "sfdc_id": context.var("account").get("sfdc_id"),
-        }
-        return {
-          "tables": {  
-            "sfdc_accounts_deleted": [record]
-          }
-        }
+          data_expression: |
+            record = {
+              "sfdc_id": var("account").get("sfdc_id"),
+            }
+            return [record]
+

@@ -8,13 +8,12 @@ steps:
       headers:
         "Accept": "application/json"
         "Content-Type": "application/json"
-    response:
-      success_status: [200]
-      parser_expression: |
+    response_expression: |
         json_data = response.json()
         fields = json_data["fields"]
         field_names_joined = ", ".join(field["name"] for field in fields)
         return {
+          "success_status": [200],
           "variables": {
             "account_fields": fields,
             "account_field_names_joined": field_names_joined
@@ -28,16 +27,15 @@ steps:
       url: "{{ var('sfdc_instance_url') }}/services/data/{{ var('api_version') }}/queryAll/"
       method: GET
       parameters: 
-        "q": "select {{ var('account_field_names_joined') }} from Account"
+        "q": "select {{ var('account_field_names_joined') }} from Account where IsDeleted = false"
       headers:
         "Accept": "application/json"
         "Content-Type": "application/json"
     response:
       success_status: [200]
       parser_expression: |
-          import json
           records = response.json()['records']
-          columns_schema = [{"name": field["name"], "type": "text"} for field in context.var("account_fields")]
+          columns_schema = [{"name": field["name"], "type": "text"} for field in var("account_fields")]
           return {
             "tables": [{  
               "source": "stage",

@@ -1,11 +1,36 @@
-description: |
-  This flow takes segment_id as parameter. The segment must be deleted from Mailchimp.
+description: delete a segment named 'sequor_top_engaged' in Mailchimp 
 steps:
   - op: http_request
-    id: delete_segment
+    id: get_segments
     request:
       source: "mailchimp"
-      url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments/{{ var('segment_id') }}"
+      url: "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments"
+      method: GET
+    response:
+      success_status: [200]  
+      tables: 
+        - source: "stage"
+          table: "mailchimp_segments"
+          columns: {id: "text", name: "text"}
+          data_expression: |
+            data = response.json()
+            return data['segments']
+  - op: transform
+    id: filter_created_segment_by_name
+    source: "stage"
+    table: "mailchimp_segments"
+    target_table: "mailchimp_segments_to_delete"
+    query: |
+      select id from mailchimp_segments where name = 'sequor_top_engaged'
+  - op: http_request
+    id: delete_segment
+    for_each:
+      source: "stage"
+      table: "mailchimp_segments_to_delete"
+      as: segment
+    request:
+      source: "mailchimp"
+      url_expression: return "https://{{ var('dc') }}.api.mailchimp.com/{{ var('api_version') }}/lists/{{ var('mailchimp_list_id') }}/segments/" + var('segment').get("id")
       method: delete
     response:
       success_status: [204]
